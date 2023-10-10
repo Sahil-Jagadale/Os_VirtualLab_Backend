@@ -4,7 +4,11 @@ import {
   registerController,
   loginController,
   forgotPasswordController,
+  verificationController,//me
+  resetPasswordController,
 } from "../controllers/authController.js";
+
+
 
 
 //routing
@@ -17,5 +21,11 @@ router.post("/login", loginController);
 //Forgot Password|| METHOD POST
 router.post("/forgot-Password", forgotPasswordController);
 
+router.post("/reset-password/:token", resetPasswordController);
+
+//Email verification route
+router.get("/verify/:token", verificationController); 
+
 
 export default router;
+

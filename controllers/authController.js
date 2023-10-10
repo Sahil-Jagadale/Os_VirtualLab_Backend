@@ -1,10 +1,11 @@
 import admin from "../model/admin.js";
 import { comparePassword, hashPassword } from "./../helpers/authHelper.js";
 import JWT from "jsonwebtoken";
+import { sendEmail } from "../controllers/emailService.js";//me
 
 export const registerController = async (req, res) => {
   try {
-    const { name, email, password, phone, address, answer } = req.body;
+    const { name, email, password, phone, address } = req.body;
     //validations
     if (!name) {
       return res.send({ message: "Name is Required" });
@@ -21,9 +22,6 @@ export const registerController = async (req, res) => {
     if (!address) {
       return res.send({ message: "Address is Required" });
     }
-    if (!answer) {
-      return res.send({ message: "Secret Answer is Required" });
-    }
     //check user
     const exisitingUser = await admin.findOne({ email });
     //exisiting user
@@ -33,6 +31,20 @@ export const registerController = async (req, res) => {
         message: "Already Register please login",
       });
     }
+
+    const verificationToken = JWT.sign({ email }, process.env.JWT_SECRET, {
+      expiresIn: "1h", // Set an expiration time for the token
+    });
+
+    // Send a verification email
+    const verificationLink = `${process.env.APP_URL}/verify/${verificationToken}`;
+    const mailOptions = {
+      to: email,
+      subject: "Your Email is registered successfully Please Verify Your Email",
+      html: `Click <a href="${verificationLink}">here</a> to verify your email.`,
+    };
+    await sendEmail(mailOptions); 
+
     //register user
     const hashedPassword = await hashPassword(password);
     //save
@@ -42,19 +54,20 @@ export const registerController = async (req, res) => {
       phone,
       address,
       password: hashedPassword,
-      answer,
+      isVerfied: false, //set intial status to false
+      verificationToken, //store varification token in user record
     }).save();
 
     res.status(201).send({
       success: true,
-      message: "User Register Successfully",
+      message: "User Register Successfully. Please check your email for verification",
       user,
     });
   } catch (error) {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "Errro in Registeration",
+      message: "Error in Registeration",
       error,
     });
   }
@@ -76,14 +89,23 @@ export const loginController = async (req, res) => {
     if (!user) {
       return res.status(200).send({
         success: false,
-        message: "Email is not registerd",
+        message: "Email is not registerd!! Please sign up",
       });
     }
+
+    // Check if the email is verified
+    if (!user.isVerified) {
+      return res.status(200).send({
+        success: false,
+        message: "Email is not verified. Please check your email for verification instructions.",
+      });
+    }
+
     const match = await comparePassword(password, user.password);
     if (!match) {
       return res.status(200).send({
         success: false,
-        message: "Invalid Password",
+        message: "Invalid Password please enter correct password",
       });
     }
     //token
@@ -114,32 +136,40 @@ export const loginController = async (req, res) => {
 };
 
 //forgot Password Controller
+
 export const forgotPasswordController = async (req, res) => {
   try {
-    const { email, answer, newPassword } = req.body;
+    const { email } = req.body;
     if (!email) {
-      res.status(400).send({ message: "Emai is required" });
-    }
-    if (!answer) {
-      res.status(400).send({ message: "answer is required" });
-    }
-    if (!newPassword) {
-      res.status(400).send({ message: "New Password is required" });
+      res.status(400).send({ message: "Email is required" });
     }
     //check
-    const user = await admin.findOne({ email, answer });
+    const user = await admin.findOne({ email });
     //validation
     if (!user) {
       return res.status(404).send({
         success: false,
-        message: "Wrong Email Or Answer",
+        message: "Wrong Email",
       });
     }
-    const hashed = await hashPassword(newPassword);
-    await admin.findByIdAndUpdate(user._id, { password: hashed });
+
+    const resetPasswordToken = JWT.sign({email}, process.env.JWT_SECRET,{
+    expiresIn: "1h",
+    });
+
+    const resetPasswordLink = `${process.env.APP_URL}/reset-password/${resetPasswordToken}`;
+
+    const mailOptions = {
+    to:email,
+    subject: "Password reset Link",
+    html: `click <a href= ${resetPasswordLink} >here</a> to reset your password`,
+    };
+
+    await sendEmail(mailOptions);
+
     res.status(200).send({
       success: true,
-      message: "Password Reset Successfully",
+      message: "Password reset link has been sent to your email address.",
     });
   } catch (error) {
     console.log(error);
@@ -151,3 +181,83 @@ export const forgotPasswordController = async (req, res) => {
   }
 };
 
+
+//reset password controller
+export const resetPasswordController = async (req, res) =>{
+  console.log("resetPasswordController called");
+  try{
+    const {email, newPassword} = req.body;
+
+    if(!email || !newPassword){
+      return res.status(400).send({ message: "Email and New password is required"})
+    }
+
+    const user = await admin.findOne({ email });
+    if(!user){
+      return res.status(400).send({
+        success: false,
+        message: "User not found."
+      });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    console.log(hashedPassword);
+
+    await admin.findByIdAndUpdate(user._id, {password: hashedPassword});
+
+    res.status(200).send({
+      success: true,
+      message: "Password updated successfully",
+    });
+
+  }
+
+  catch (error) {
+    console.log(error);
+    res.status(500).send({
+      success: false,
+      message: "Error in resetting password",
+      error,
+    });
+  }
+  
+};
+
+// Verification Controller
+export const verificationController = async (req, res) => {
+  console.log('Verification route called');
+  try {
+    const { token } = req.params;
+    // Verify the token
+    const decoded = JWT.verify(token, process.env.JWT_SECRET);
+
+    console.log('Decoded Token Payload:', decoded);//1
+
+    // Find the user by email in the database
+    const user = await admin.findOne({ email: decoded.email });
+
+    console.log('User Found:', user);//2
+
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found. Invalid verification token.",
+      });
+    }
+    // Update the user's verification status to true
+    await admin.findByIdAndUpdate(user._id, { isVerified: true });
+    
+    res.status(200).send({
+      success: true,
+      message: "Email verified successfully. You can now login.",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      success: false,
+      message: "Error verifying email",
+      error,
+    });
+  }
+};
