@@ -1,18 +1,14 @@
-import path from 'path';
-import multer from 'multer';
 import Content from '../model/assignment.js';
 
-
-export const addContent = async (req, res) => {
+const addContent = async (req, res) => {
   try {
     const { category, title, video, editor } = req.body;
-    const notes = req.file ? req.file.path : null;
-
+    const { filename } = req.file;
     const content = new Content({
       category,
       title,
       video,
-      notes, 
+      file: filename,
       editor,
     });
 
@@ -24,6 +20,6 @@ export const addContent = async (req, res) => {
   }
 };
 
-
+export { addContent };
 
 
