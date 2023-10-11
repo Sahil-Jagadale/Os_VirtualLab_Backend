@@ -18,7 +18,7 @@ dotenv.config();
 connectDB();
 
 //middlewares
-// app.use(cors());
+app.use(cors());
 app.use(express.json());
 
 app.use("/api/assignment", addContent);
