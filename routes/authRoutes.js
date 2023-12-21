@@ -6,6 +6,7 @@ import {
   forgotPasswordController,
   verificationController,//me
   resetPasswordController,
+  approveUserController,
 } from "../controllers/authController.js";
 
 
@@ -17,6 +18,7 @@ router.post("/register", registerController);
 
 //LOGIN || METHOD POST
 router.post("/login", loginController);
+router.get('/approve/:token', approveUserController);
 
 //Forgot Password|| METHOD POST
 router.post("/forgot-Password", forgotPasswordController);

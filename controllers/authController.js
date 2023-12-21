@@ -32,6 +32,7 @@ export const registerController = async (req, res) => {
       });
     }
 
+    //me
     const verificationToken = JWT.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "1h", // Set an expiration time for the token
     });
@@ -43,7 +44,7 @@ export const registerController = async (req, res) => {
       subject: "Your Email is registered successfully Please Verify Your Email",
       html: `Click <a href="${verificationLink}">here</a> to verify your email.`,
     };
-    await sendEmail(mailOptions); 
+    await sendEmail(mailOptions);  // me
 
     //register user
     const hashedPassword = await hashPassword(password);
@@ -55,6 +56,7 @@ export const registerController = async (req, res) => {
       address,
       password: hashedPassword,
       isVerfied: false, //set intial status to false
+      isApproved: false,
       verificationToken, //store varification token in user record
     }).save();
 
@@ -72,6 +74,87 @@ export const registerController = async (req, res) => {
     });
   }
 };
+
+//approve user controller
+export const approveUserController = async (req, res) => {
+  console.log('approve user called');
+  try {
+    const { token } = req.params;
+    console.log('received tokem: ',token);
+
+    if (!token) {
+      return res.status(400).send({
+        success: false,
+        message: "Approval token is required.",
+      });
+    }
+
+    // Verify the approval token
+    const decoded = JWT.verify(token, process.env.JWT_SECRET);
+
+    console.log('Decoded token: ',decoded);
+    // Find the user by email in the database
+    const user = await admin.findOne({ email: decoded.email });
+
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found. Invalid approval token.",
+      });
+    }
+
+    // Check if the user is already approved
+    if (user.isApproved) {
+      return res.status(200).send({
+        success: false,
+        message: "User has already been approved.",
+      });
+    }
+
+    // Update the user's approval status to true
+    await admin.findByIdAndUpdate(user._id, { isApproved: true });
+
+    // Define the content of the approval email
+    const approvalEmailContent = `
+      Dear ${user.name},
+
+      We are pleased to inform you that your login request has been approved by the super admin. You can now access your account and start using our services.
+
+      Here are the details of your account:
+      - Name: ${user.name}
+      - Email: ${user.email}
+      - Phone: ${user.phone}
+      - Address: ${user.address}
+
+      Thank you for choosing our service. If you have any questions or need assistance, please feel free to contact our support team.
+      Do not reply to this email; it is not monitored.
+      Best regards,
+      [OSL-WEB Team]
+    `;
+
+    // Send an email to notify the user they are approved
+    const approvalMailOptions = {
+      to: user.email,
+      subject: "User Approved",
+      text: "Your request for approval has been approved. You can now log in.",
+      html: approvalEmailContent,
+    };
+    await sendEmail(approvalMailOptions);
+
+    res.status(200).send({
+      success: true,
+      message: "User approved successfully. An email notification has been sent.",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      success: false,
+      message: "Error approving user",
+      error,
+    });
+  }
+};
+
 
 //POST LOGIN
 export const loginController = async (req, res) => {
@@ -98,6 +181,37 @@ export const loginController = async (req, res) => {
       return res.status(200).send({
         success: false,
         message: "Email is not verified. Please check your email for verification instructions.",
+      });
+    }
+    
+    if (!user.isApproved) {
+      const approvalToken = JWT.sign({ email: user.email }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+
+      const approvalLink = `${process.env.APP_URL}/approve/${approvalToken}`;
+
+      const requestEmail = process.env.SUPER_ADMIN_EMAIL;
+      const requestMessage = `User with the following details has requested approval to log in:\n
+        - Name: ${user.name}\n
+        - Email: ${user.email}\n
+        - Phone: ${user.phone}\n
+        - Address: ${user.address}\n\n
+        Please review the user's request and take appropriate action to approve or deny their request by clicking the following link:
+    
+        [Approval Link](${approvalLink})\n\n
+        Thank you for managing user approvals.`;
+    
+      const mailOptions = {
+        to: requestEmail,
+        subject: "Login Request Approval",
+        text: requestMessage,
+      };
+      await sendEmail(mailOptions);
+    
+      return res.status(200).send({
+        success: false,
+        message: "User is not approved. Please wait for approval from the super admin.",
       });
     }
 
@@ -153,6 +267,7 @@ export const forgotPasswordController = async (req, res) => {
       });
     }
 
+    //me
     const resetPasswordToken = JWT.sign({email}, process.env.JWT_SECRET,{
     expiresIn: "1h",
     });
