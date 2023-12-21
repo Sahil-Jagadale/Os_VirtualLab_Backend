@@ -17,7 +17,10 @@ const storage = multer.diskStorage({
   
 const upload = multer({ storage: storage });
 
-router.post('/addContent', upload.single("file"), addContent);
+router.post('/addContent', upload.fields([
+  { name: 'videos', maxCount: 10 }, // Adjust maxCount based on your requirement
+  { name: 'files', maxCount: 10 }, // Adjust maxCount based on your requirement
+]), addContent);
 router.get('/getAllAssignments', getAllAssignments);
 router.delete('/deleteAssignment/:id', deleteAssignment);
 
