@@ -1,15 +1,17 @@
-import Content from '../model/assignment.js';
+import Content from "../model/assignment.js";
 
 const addContent = async (req, res) => {
   try {
-    const { category, title, video, editor } = req.body;
-    const { filename } = req.file;
+    const { category, title, editor } = req.body;
+    const videos = req.body.videos ? req.body.videos.split(',') : [];
+    const files = req.files['files'] ? req.files['files'].map(file => file.filename) : [];
+
     const content = new Content({
       category,
       title,
-      video,
-      file: filename,
+      videos,  // Store video links as an array
       editor,
+      files,
     });
 
     await content.save();
@@ -21,5 +23,3 @@ const addContent = async (req, res) => {
 };
 
 export { addContent };
-
-

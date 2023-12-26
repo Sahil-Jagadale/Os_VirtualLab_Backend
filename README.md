@@ -1,5 +1,5 @@
 # Os_VirtualLab_Backend
-Texhnologies Used 
+Technologies Used 
 Node.js 
 MongoDB
 Express
