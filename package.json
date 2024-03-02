@@ -2,7 +2,7 @@
   "name": "os_virtuallab_backend",
   "version": "1.0.0",
   "description": "Technologies Used \r Node.js \r MongoDB\r Express",
-  "main": "server.js",
+  "main": "index.js",
   "type": "module",
   "engines": {
     "node": "18.x"
@@ -10,7 +10,7 @@
 
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "repository": {
     "type": "git",

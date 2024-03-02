@@ -56,7 +56,7 @@ app.use("/api/assignmnet", getAllAssignments);
 app.use("/api/assignmnet", deleteAssignmnet);
 app.use("/api/addLinks", linkRoutes);
 //port
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000;
 
 //run listen
 app.listen(PORT, () => {
